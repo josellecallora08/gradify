@@ -1,3 +1,9 @@
 /venv
 .env
 logs
+**/__pycache__/
+*.pyc
+*.pyo
+__pycache__/
+*.py[cod]
+*$py.class

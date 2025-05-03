@@ -168,7 +168,7 @@ class BitableManager:
         response: CreateAppTableRecordResponse = self.lark.bitable.v1.app_table_record.create(request)
 
         if not response.success():
-            raise Exception(f"Request failed: code={response.code}, msg={response.msg}, log_id={response.get_log_id()}")
+            raise Exception(f"Request fasiled: code={response.code}, msg={response.msg}, log_id={response.get_log_id()}")
 
         lark.logger.info(lark.JSON.marshal(response.data, indent=4))
         return response

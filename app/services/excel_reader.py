@@ -4,24 +4,31 @@ import pandas as pd
 import os
 import json
 class ExcelReader:
-    def __init__(self, data_folder='data'):
+    def __init__(self, data_folder='storage/er'):
         self.data_folder = data_folder
         self.file_path = self.find_file()
         self.dataframe = None
 
     def find_file(self):
-        """Finds the first Excel file in the data folder."""
+        """Finds the first Excel or CSV file in the data folder."""
         if not os.path.exists(self.data_folder):
             raise FileNotFoundError(f"Data folder '{self.data_folder}' not found.")
-        
+
         for file_name in os.listdir(self.data_folder):
             if file_name.endswith('.xlsx') or file_name.endswith('.xls') or file_name.endswith('.csv'):
                 return os.path.join(self.data_folder, file_name)
-        
-        print("No Excel file found in data folder.")
 
-         
+        print("⚠️ No Excel or CSV file found in data folder.")
+        return None
+
     def load_file(self):
+        if self.file_path is None:
+            self.file_path = self.find_file()
+
+        if self.file_path is None:
+            print("⚠️ No file path available. Did not find any Excel or CSV file.")
+            return
+
         try:
             if self.file_path.endswith('csv'):
                 self.dataframe = pd.read_csv(self.file_path)
@@ -141,9 +148,10 @@ class ExcelReader:
                 name = None
                 if isinstance(lark_info, list) and lark_info:
                     name = lark_info[0].get("en_name")
+                    id = lark_info[0].get("id")
 
                 if email and name and email.strip().lower() in email_set:
-                    trainees.append(name)
+                    trainees.append(id)
 
             df = df[df["Email_cleaned"].isin(lark_emails)]
             df.drop(columns=["Email_cleaned"], inplace=True)

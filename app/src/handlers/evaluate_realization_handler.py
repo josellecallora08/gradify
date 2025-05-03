@@ -60,55 +60,82 @@ class EvaluateRealization(CallbackHandler):
             file_path = await self.download_csv_from_payload(payload=payload)
 
             names = self.excel_reader.clean_and_process_file(ctx=self.ctx)
-            # ✅ Step 3: Get cleaned data
             content = self.excel_reader.get_all_data()
 
-            # ✅ Step 4: Loop through all rows
+            print("🚨 Payload being sent to Lark:", json.dumps(payload, indent=2))
+
+            # ✅ Step 2: Loop through all rows
             if content is not None:
                 for index, row in content.iterrows():
-                    self.ctx.logger.info(f"➡️ Row {index}: {row.to_dict()}")
-                    # Example: Access individual fields
-                    email = row.get("Email", "")
-                    topic, realization = row.get("Result", "").split(',')
-                    print(topic)
-                    print(realization)
-                    with open("data/prompt.md", "r", encoding='utf-8') as f:
-                        template = f.read()
+                    try:
+                        self.ctx.logger.info(f"➡️ Row {index}: {row.to_dict()}")
 
-                    prompt = template.replace("{{topic}}", topic.split(':')[1]).replace('{{realization}}', realization.split(':')[1])   
-                    
-                    evaluate = await self.ctx.groq_serivce.chat(prompt=prompt)  
-                    cleaned = evaluate.replace('```json', '').replace('```','')
-                    parsed = json.loads(cleaned)
+                        email = row.get("Email", "")
+                        result = row.get("Result", "")
 
-                    fields_to_add = {
-                        "name": [{"id":str(names[index])}],
-                        "email": str(email),
-                        "relevance": int(parsed["scores"]["relevance"]),
-                        "depth": int(parsed["scores"]["depth"]),
-                        "clarity": int(parsed["scores"]["clarity"]),
-                        "originality": int(parsed["scores"]["originality"]),
-                        "total_score": int(parsed["total_score"]),
-                        "feedback": str(parsed["feedback"]),
-                        "parent_record_id": [payload['record_id']],  # ✅ wrap in a list
-                        "file": [{"file_token": payload["file"][0]['file_token']}],
-                        "trainer":[{"id":payload["uploaded_by"]["id"]}]
-                    }
+                        # ✅ Validate and parse result field
+                        if not result or ',' not in result:
+                            raise ValueError(f"Invalid or missing 'Result': {result}")
 
-                    self.ctx.base_manager.create_record(
-                        table_id=os.getenv('PROCESSED_TABLE_ID'),
-                        fields=fields_to_add
-                    )
+                        parts = result.split(',')
+                        if len(parts) != 2 or ':' not in parts[0] or ':' not in parts[1]:
+                            raise ValueError(f"Malformed 'Result' value: {result}")
 
-                    
-                self.ctx.base_manager.update_record(
-                        table_id=os.getenv('UNPROCESSED_TABLE_ID'),
-                        record_id=payload['record_id'],
-                        fields={
-                            "status": 'done'
+                        topic = parts[0].split(':', 1)[1].strip()
+                        realization = parts[1].split(':', 1)[1].strip()
+
+                        # ✅ Read prompt template
+                        try:
+                            with open("data/prompt.md", "r", encoding='utf-8') as f:
+                                template = f.read()
+                        except FileNotFoundError:
+                            raise RuntimeError("Missing 'data/prompt.md' file.")
+
+                        prompt = template.replace("{{topic}}", topic).replace('{{realization}}', realization)
+
+                        # ✅ AI Evaluation
+                        evaluate = await self.ctx.groq_serivce.chat(prompt=prompt)
+                        cleaned = evaluate.replace("```json", "").replace("```", "").strip()
+
+                        # ✅ Parse response
+                        try:
+                            parsed = json.loads(cleaned)
+                        except json.JSONDecodeError:
+                            raise ValueError(f"Could not parse JSON: {cleaned}")
+
+                        # ✅ Construct fields
+                        fields_to_add = {
+                            "name": [{"id": str(names[index])}],
+                            "email": email,
+                            "relevance": int(parsed["scores"]["relevance"]),
+                            "depth": int(parsed["scores"]["depth"]),
+                            "clarity": int(parsed["scores"]["clarity"]),
+                            "originality": int(parsed["scores"]["originality"]),
+                            "total_score": int(parsed["total_score"]),
+                            "realization": realization,
+                            "feedback": str(parsed["feedback"]),
+                            "parent_record_id": [payload['record_id']],
+                            "file": [{"file_token": payload["file"][0]['file_token']}],
+                            "trainer": [{"id": payload["uploaded_by"]["id"]}]
                         }
-                    )
-                self.ctx.logger.info("Done")
+
+                        # ✅ Push to processed table
+                        self.ctx.base_manager.create_record(
+                            table_id=os.getenv('PROCESSED_TABLE_ID'),
+                            fields=fields_to_add
+                        )
+
+                    except Exception as row_err:
+                        self.ctx.logger.error(f"❌ Skipping row {index} due to error: {row_err}")
+
+                # ✅ Update unprocessed table record
+                self.ctx.base_manager.update_record(
+                    table_id=os.getenv('UNPROCESSED_TABLE_ID'),
+                    record_id=payload['record_id'],
+                    fields={"status": 'done'}
+                )
+
+                self.ctx.logger.info("✅ All rows processed.")
 
             else:
                 self.ctx.logger.warning("⚠️ No data to process in Excel.")
@@ -117,4 +144,3 @@ class EvaluateRealization(CallbackHandler):
             self.ctx.logger.error(f"❌ Error during realization evaluation: {e}")
 
         self.ctx.logger.info("✅ Finished realization evaluation.")
-        
