@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import re
 import json
 from dotenv import load_dotenv
 from app.interfaces import CallbackHandler
@@ -13,7 +14,7 @@ class EvaluateRealization(CallbackHandler):
     def __init__(self, context: AppContext):
         self.ctx = context
         self.excel_reader = self.ctx.excel_reader
-
+    
     async def download_csv_from_payload(self, payload: Dict) -> str:
         """
         Downloads the attached CSV file from the Lark payload and saves it to ./storage/er/.
@@ -57,11 +58,12 @@ class EvaluateRealization(CallbackHandler):
         self.ctx.logger.info("📝 Starting realization evaluation...")
         try:
             # ✅ Step 1: Download if needed
-            file_path = await self.download_csv_from_payload(payload=payload)
+            await self.download_csv_from_payload(payload=payload)
 
             names = self.excel_reader.clean_and_process_file(ctx=self.ctx)
+            self.excel_reader.refresh()
             content = self.excel_reader.get_all_data()
-
+            print(content)
             print("🚨 Payload being sent to Lark:", json.dumps(payload, indent=2))
 
             # ✅ Step 2: Loop through all rows
@@ -95,8 +97,18 @@ class EvaluateRealization(CallbackHandler):
 
                         # ✅ AI Evaluation
                         evaluate = await self.ctx.groq_serivce.chat(prompt=prompt)
-                        cleaned = evaluate.replace("```json", "").replace("```", "").strip()
+                        json_match = re.search(r'\{[\s\S]*\}', evaluate)
+                        if not json_match:
+                            raise ValueError(f"No JSON object found in AI output: {evaluate}")
 
+                        cleaned = json_match.group(0)
+                        print(f"Cleaned JSON: {cleaned}")
+
+                        try:
+                            parsed = json.loads(cleaned)
+                        except json.JSONDecodeError as e:
+                            raise ValueError(f"Could not parse JSON: {e} | Cleaned: {cleaned}")
+                        
                         # ✅ Parse response
                         try:
                             parsed = json.loads(cleaned)

@@ -102,6 +102,11 @@ class ExcelReader:
         else:
             print("⚠️ No emails retrieved.")
             return None
+
+    def refresh(self):
+        """Force reload of the latest file in the folder."""
+        self.file_path = self.find_file()
+        self.load_file()
             
     def clean_and_process_file(self, ctx):
         self.load_file()

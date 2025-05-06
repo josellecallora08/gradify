@@ -6,4 +6,5 @@ logs
 *.pyo
 __pycache__/
 *.py[cod]
-*$py.class
+*$py.classa
+**.pyc
