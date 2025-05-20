@@ -23,7 +23,8 @@ class EvaluateRealization(CallbackHandler):
         try:
             self.ctx.logger.info("📥 Downloading Excel File")
             file_info = payload["file"][0]
-            file_name = f"data-{payload['uploaded_by']['id']}.csv"
+            print(payload)
+            file_name = f"data-{payload['uploaded_by'][0]['id']}.csv"
             file_path = os.path.join("storage", "er", file_name)
 
             if os.path.exists(file_path):
@@ -40,7 +41,7 @@ class EvaluateRealization(CallbackHandler):
             }
 
             # Perform download
-            file_path = await self.ctx.base_manager.adownload(
+            await self.ctx.base_manager.adownload(
                 payload=download_payload,
                 folder_name="storage/er",
                 file_name=file_name
@@ -58,7 +59,7 @@ class EvaluateRealization(CallbackHandler):
         self.ctx.logger.info("📝 Starting realization evaluation...")
         try:
             # ✅ Step 1: Download if needed
-            await self.download_csv_from_payload(payload=payload)
+            generated_file = await self.download_csv_from_payload(payload=payload)
 
             names = self.excel_reader.clean_and_process_file(ctx=self.ctx)
             self.excel_reader.refresh()
@@ -128,7 +129,7 @@ class EvaluateRealization(CallbackHandler):
                             "feedback": str(parsed["feedback"]),
                             "parent_record_id": [payload['record_id']],
                             "file": [{"file_token": payload["file"][0]['file_token']}],
-                            "trainer": [{"id": payload["uploaded_by"]["id"]}]
+                            "trainer": [{"id": payload["uploaded_by"][0]["id"]}]
                         }
 
                         # ✅ Push to processed table
@@ -154,5 +155,11 @@ class EvaluateRealization(CallbackHandler):
 
         except Exception as e:
             self.ctx.logger.error(f"❌ Error during realization evaluation: {e}")
-
-        self.ctx.logger.info("✅ Finished realization evaluation.")
+        
+        finally:
+            print(generated_file)
+            if generated_file and os.path.exists(generated_file):
+                print(generated_file)
+                delete_file(generated_file)
+            
+            self.ctx.logger.info("✅ Finished realization evaluation.")
