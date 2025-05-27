@@ -4,7 +4,7 @@ import os
 import argparse
 from typing import Dict
 from app.common import AppContext, Worker
-from app.src.handlers import EvaluateRealization, EvaluateTrainees
+from app.src.handlers import EvaluateRealization, EvaluateTrainees, ContentGenerator
 from app.config.setup_context import context
 from app.interfaces import CallbackHandler
 from app.enums import AssessmentType
@@ -47,8 +47,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--server-task',
         type=str,
-        default='er',
-        choices=['er'],
+        default='cg',
+        choices=['er', 'et', 'cg'],
         help='Choose which task to run'
     )
 
@@ -56,7 +56,8 @@ if __name__ == "__main__":
 
     task_map = {
         "er": AssessmentType.EVALUATE_REALIZATION,
-        "et": AssessmentType.EVALUATE_TRAINEES
+        "et": AssessmentType.EVALUATE_TRAINEES,
+        "cg": AssessmentType.CONTENT_GENERATOR
     }
 
     # map shortcut name to its real name
@@ -69,7 +70,8 @@ if __name__ == "__main__":
     # map handlers for all supported assessments
     handlers: Handlers = {
         AssessmentType.EVALUATE_REALIZATION: EvaluateRealization(context),
-        AssessmentType.EVALUATE_TRAINEES: EvaluateTrainees(context)
+        AssessmentType.EVALUATE_TRAINEES: EvaluateTrainees(context),
+        AssessmentType.CONTENT_GENERATOR: ContentGenerator(context)
     }
 
     worker = Worker(context, server_task)

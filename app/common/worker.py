@@ -28,24 +28,39 @@ class Worker:
         formatted_time = now.strftime("%A at %I:%M %p")
 
         self._ctx.logger.info('🔄 syncing from lark at %s', formatted_time)
-
         records = await self._ctx.lark_queue.get_items(self.server_task)
 
         if len(records) == 0:
             return
 
-        transformed_records = DataTransformer.convert_raw_lark_record_to_dict(
-            records,
-            [
-                "record_id",
-                "version",
-                "assessment_type",
-                "environment",
-                "file",
-                "download_url",
-                "status",
-                "date",
-                "uploaded_by"
-            ]
-        )
+        if self.server_task == "Content Generator":
+            transformed_records = DataTransformer.convert_raw_lark_record_to_dict(
+                records,
+                [
+                    "record_id",
+                    "version",
+                    "assessment_type",
+                    "environment",
+                    "youtube_link",
+                    "status",
+                    "date_uploaded",
+                    "uploaded_by"
+                ]
+            )
+        else: 
+            transformed_records = DataTransformer.convert_raw_lark_record_to_dict(
+                records,
+                [
+                    "record_id",
+                    "version",
+                    "assessment_type",
+                    "environment",
+                    "file",
+                    "download_url",
+                    "status",
+                    "date",
+                    "uploaded_by"
+                ]
+            )
+
         self._ctx.task_queue.enqueue_many(transformed_records)

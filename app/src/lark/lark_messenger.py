@@ -23,3 +23,5 @@ class LarkMessenger:
             raise Exception(f"Error: code={response.code}, message={response.msg}")
 
         return response
+    
+    
