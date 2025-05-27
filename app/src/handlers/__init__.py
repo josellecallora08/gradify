@@ -1,2 +1,3 @@
 from .evaluate_realization_handler import EvaluateRealization
 from .evaluate_trainees import EvaluateTrainees
+from .generate_content_okpo_handler import ContentGenerator
