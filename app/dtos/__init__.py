@@ -1,2 +1,3 @@
 from .required_fields_excel_base import RequiredFieldsExcelBase
 from .required_fields_content_generation import RequiredFieldContentGeneration
+from .trainee_evaluation import TraineeEvaluation
